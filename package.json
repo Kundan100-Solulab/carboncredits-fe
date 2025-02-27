@@ -1,0 +1,45 @@
+{
+  "name": "carbondex",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "shadcn": "shadcn-ui"
+  },
+  "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.1",
+    "@radix-ui/react-select": "^2.1.1",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@shadcn/ui": "^0.0.4",
+    "@thirdweb-dev/react": "^4.9.4",
+    "@thirdweb-dev/sdk": "^4.0.99",
+    "add": "^2.0.6",
+    "autoprefixer": "^10.4.19",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "ethers": "5.7.2",
+    "firebase": "^10.12.2",
+    "framer-motion": "^11.2.11",
+    "lucide-react": "^0.397.0",
+    "next": "14.2.3",
+    "react": "^18",
+    "react-anime": "^4.1.1",
+    "react-dom": "^18",
+    "react-icons": "^5.2.1",
+    "recharts": "^2.12.7",
+    "tailwind-merge": "^2.3.0",
+    "tailwindcss-animate": "^1.0.7",
+    "yarn": "^1.22.22"
+  },
+  "devDependencies": {
+    "eslint": "^8",
+    "eslint-config-next": "14.2.3",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4"
+  }
+}
