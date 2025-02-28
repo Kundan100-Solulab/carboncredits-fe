@@ -74,6 +74,7 @@ function SellPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [myBalance, setMyBalance] = useState(0);
   const [selectedTab, setSelectedTab] = useState("price");
+  const [buttonText, setButtonText] = useState("Confirm Listing");
 
   const address = useAddress();
   const signer = useSigner();
@@ -94,16 +95,23 @@ function SellPage() {
   const getMyBalance = async () => {
     if (address && token) {
       try {
+        // Get balance in wei
         const balance = await token.call("balanceOf", [address]);
-        setMyBalance(ethers.utils.formatUnits(balance.toString(), 18));
+
+        // Convert wei to ether (18 decimals)
+        const formattedBalance = ethers.utils.formatUnits(balance, 18);
+
+        // Update state with formatted balance
+        setMyBalance(parseFloat(formattedBalance));
       } catch (error) {
         console.error("Error fetching balance:", error);
+        setMyBalance(0);
       }
     }
   };
 
   useEffect(() => {
-    if (address) {
+    if (address && token) {
       const q = query(collection(db, "listings"), orderBy("createdAt", "desc"));
 
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -118,7 +126,7 @@ function SellPage() {
 
       return () => unsubscribe();
     }
-  }, [address]);
+  }, [address, token]);
 
   useEffect(() => {
     const fetchChartData = async () => {
@@ -152,17 +160,28 @@ function SellPage() {
     getMyBalance();
     fetchChartData();
   }, []);
-
   async function getLatestEthUsdPrice() {
-    const priceFeed = new ethers.Contract(
-      priceFeedAddress,
-      AggregatorV3InterfaceABI,
-      signer
-    );
-    const latestRoundData = await priceFeed.latestRoundData();
-    const price = ethers.utils.formatUnits(latestRoundData.answer, 8);
-    setEthUsdPrice(Math.round(price));
-    return Math.round(price);
+    try {
+      // Create contract instance with proper signer
+      const priceFeedContract = new ethers.Contract(
+        priceFeedAddress,
+        AggregatorV3InterfaceABI,
+        signer
+      );
+
+      // Get latest round data
+      const [roundId, answer, startedAt, updatedAt, answeredInRound] =
+        await priceFeedContract.latestRoundData();
+
+      // Convert price feed answer to USD value
+      const price = Number(ethers.utils.formatUnits(answer, 8));
+      setEthUsdPrice(price);
+      return price;
+    } catch (error) {
+      console.error("Price feed error:", error);
+      // Return a fallback price or throw error based on your requirements
+      return 2000; // Example fallback price
+    }
   }
 
   const createListing = async (tokenAmount) => {
@@ -170,53 +189,40 @@ function SellPage() {
       tokenAmount.toString(),
       18
     );
+
     try {
-      const tokenBalance = await token.call("balanceOf", [address]);
-      const q = query(
-        collection(db, "listings"),
-        where("address", "==", address)
+      setButtonText("Processing...");
+
+      // First approve tokens
+      const approveTx = await token.call(
+        "approve",
+        [exchangeAddress, tokenAmountInWei],
+        { gasLimit: 300000 }
       );
-      const querySnapshot = await getDocs(q);
-      const totalListedTokens = querySnapshot.docs.reduce((acc, doc) => {
-        const data = doc.data();
-        const listedAmountInWei = ethers.utils.parseUnits(
-          data.amount.toString(),
-          18
-        );
-        return acc.add(listedAmountInWei);
-      }, ethers.BigNumber.from(0));
 
-      const availableBalance = tokenBalance.sub(totalListedTokens);
-      if (availableBalance.lt(tokenAmountInWei)) {
-        alert("Not enough tokens to list");
-        return;
-      }
+      // Add listing to exchange contract
+      await exchange.call("addListing", [Math.floor(tokenAmount)], {
+        gasLimit: 300000,
+      });
 
-      const approveTx = await token.call("approve", [
-        exchangeAddress,
-        tokenAmountInWei,
-      ]);
-
-      const allowance = await token.call("allowance", [
+      // Store listing in database
+      await addDoc(collection(db, "listings"), {
         address,
-        exchangeAddress,
-      ]);
-
-      const listingData = {
-        address: address,
         amount: tokenAmount,
         price: priceUSD,
         status: 0,
         createdAt: serverTimestamp(),
-      };
-      let res = await addDoc(collection(db, "listings"), listingData);
+      });
+
       setTokenAmount("");
       setPriceUSD("");
       setShowSuccessAlert(true);
       setTimeout(() => setShowSuccessAlert(false), 3000);
-      setTotalListings(totalListings + 1);
+      setTotalListings((prev) => prev + 1);
+      setButtonText("Confirm Listing");
     } catch (error) {
-      console.error("Error creating listing:", error);
+      setButtonText("Confirm Listing");
+      throw new Error(`Transaction failed: ${error.message}`);
     }
   };
 
@@ -433,9 +439,10 @@ function SellPage() {
                           alert("Please connect your wallet first");
                         }
                       }}
+                      disabled={buttonText === "Processing..."}
                       className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-md transition-colors"
                     >
-                      Confirm Listing
+                      {buttonText}
                     </button>
                   </CardFooter>
                 )}

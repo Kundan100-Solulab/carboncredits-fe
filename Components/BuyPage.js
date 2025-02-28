@@ -12,6 +12,7 @@ import {
   DollarSign,
   TrendingUp,
 } from "lucide-react";
+
 import { Alert, AlertDescription } from "./Alert";
 import { Card, CardHeader, CardContent, CardFooter } from "./Card";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "./Modal";
@@ -66,6 +67,7 @@ function BuyPage() {
   const [ethUsdPrice, setEthUsdPrice] = useState(0);
   const [co2Offset, setCo2Offset] = useState(0);
   const [impactRate, setImpactRate] = useState("");
+  const [buttonText, setButtonText] = useState("Confirm Purchase");
 
   // Add this conversion constant
   const CARBON_CREDIT_TO_CO2_RATIO = 1.5; // 1 carbon credit = 1.5 metric tons of CO2
@@ -161,70 +163,91 @@ function BuyPage() {
   }, []);
 
   async function getLatestEthUsdPrice() {
-    const priceFeed = new ethers.Contract(
-      priceFeedAddress,
-      AggregatorV3InterfaceABI,
-      signer
-    );
-    const latestRoundData = await priceFeed.latestRoundData();
-    const price = ethers.utils.formatUnits(latestRoundData.answer, 8);
-    setEthUsdPrice(Math.round(price));
-    return Math.round(price);
-  }
+    try {
+      // Create contract instance with proper signer
+      const priceFeedContract = new ethers.Contract(
+        priceFeedAddress,
+        AggregatorV3InterfaceABI,
+        signer
+      );
 
+      // Get latest round data
+      const [roundId, answer, startedAt, updatedAt, answeredInRound] =
+        await priceFeedContract.latestRoundData();
+
+      // Convert price feed answer to USD value
+      const price = Number(ethers.utils.formatUnits(answer, 8));
+      setEthUsdPrice(price);
+      return price;
+    } catch (error) {
+      console.error("Price feed error:", error);
+      // Return a fallback price or throw error based on your requirements
+      return 2000; // Example fallback price
+    }
+  }
   const buyTokens = async (tokenAmount, tokenPrice) => {
     try {
-      const totalUSDPrice = ethers.utils.parseUnits(
-        (tokenAmount * Math.round(tokenPrice)).toString(),
-        18
-      );
+      setButtonText("Processing...");
       const ethPrice = await getLatestEthUsdPrice();
-      const priceInWei = totalUSDPrice.div(ethPrice);
-      const newPriceInWei = priceInWei.add(
-        ethers.utils.parseUnits("0.00001", 18)
+      const totalUSDPrice = Math.floor(tokenAmount * tokenPrice);
+
+      const priceInWei = ethers.utils.parseEther(
+        (totalUSDPrice / ethPrice).toFixed(18)
       );
 
-      const accountBalance = await signer.provider.getBalance(address);
-      if (accountBalance.lt(newPriceInWei)) {
-        alert("Insufficient funds for the transaction");
-        return;
-      }
-
-      const tx = await exchange.call(
+      await exchange.call(
         "buyTokens",
-        [tokenAmount, Math.round(tokenPrice)],
+        [Math.floor(tokenAmount), Math.floor(tokenPrice)],
         {
-          value: newPriceInWei,
+          value: priceInWei,
+          gasLimit: 300000,
         }
       );
-      setMyBalance((Number(myBalance) + Number(tokenAmount)).toFixed(1));
-      alert("Tokens purchased successfully!");
 
-      const purchaseData = {
-        address: address,
+      // Store only the essential data
+      await addDoc(collection(db, "purchases"), {
+        address,
         amount: tokenAmount,
         price: tokenPrice.toFixed(2),
         status: 0,
         createdAt: serverTimestamp(),
-      };
-      let res = await addDoc(collection(db, "purchases"), purchaseData);
-      setTokenAmount("");
+      });
+
+      setMyBalance((prev) => (Number(prev) + Number(tokenAmount)).toFixed(1));
       setShowSuccessAlert(true);
-      setTimeout(() => setShowSuccessAlert(false), 3000);
-      setTotalPurchases(totalPurchases + 1);
+
+      setButtonText("Confirm Purchase");
     } catch (error) {
-      console.error("Error making purchase:", error);
+      setButtonText("Confirm Purchase");
+      throw new Error(`Transaction failed: ${error.message}`);
     }
   };
 
   const handleBuyTokens = async () => {
-    if (tokenAmount) {
-      try {
-        await buyTokens(tokenAmount, currentPrice);
-      } catch (error) {
-        console.error("Error creating listing:", error);
-        alert("Enter token amount");
-      }
+    if (!address) {
+      alert("Please connect your wallet");
+      return;
+    }
+
+    if (!tokenAmount || tokenAmount <= 0) {
+      alert("Please enter a valid token amount");
+      return;
+    }
+
+    try {
+      // Show loading state if needed
+      const tx = await buyTokens(tokenAmount, currentPrice);
+
+      // Reset form and show success message
+      setTokenAmount("");
+      setShowSuccessAlert(true);
+      setTimeout(() => setShowSuccessAlert(false), 3000);
+
+      // Refresh balance
+      await getMyBalance();
+    } catch (error) {
+      console.error("Transaction failed:", error);
+      alert(error.message || "Transaction failed. Please try again.");
     }
   };
 
@@ -447,9 +470,10 @@ function BuyPage() {
                           alert("Please connect your wallet");
                         }
                       }}
+                      disabled={buttonText === "Processing..."}
                       className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-md transition-colors"
                     >
-                      Confirm Purchase
+                      {buttonText}
                     </button>
                   </CardFooter>
                 )}
