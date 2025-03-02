@@ -39,10 +39,10 @@ import { ethers } from "ethers";
 import Navbar from "./Navbar2";
 import { format } from "date-fns";
 import Footer from "./Footer";
-
 const tokenAddress = "0x2181dCA9782E00C217D9a0e9570919A39EF530d8";
 const exchangeAddress = "0x2f5e216a8096e6e65228Fab61a1e3D246f718c0E";
-const priceFeedAddress = "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1";
+const priceFeedAddress = "0x694AA1769357215DE4FAC081bf1f309aDC325306";
+
 const CarbonCreditTokenABI = require("../src/app/utils/CarbonCreditToken.json");
 const CarbonCreditExchangeABI = require("../src/app/utils/CarbonCreditExchange.json");
 const AggregatorV3InterfaceABI = require("../src/app/utils/AggregatorV3Interface.json");
@@ -89,15 +89,76 @@ function BuyPage() {
   );
 
   const getMyBalance = async () => {
-    if (address && token) {
+    // console.log("Starting balance fetch...");
+    // console.log("Address:", address);
+    // console.log("Signer:", signer);
+    // console.log("Token Address:", tokenAddress);
+    // console.log("Token ABI:", CarbonCreditTokenABI);
+
+    if (address && signer) {
       try {
-        const balance = await token.call("balanceOf", [address]);
-        setMyBalance(ethers.utils.formatUnits(balance.toString(), 18));
+        const tokenContract = new ethers.Contract(
+          tokenAddress,
+          CarbonCreditTokenABI,
+          signer
+        );
+        // console.log("Token Contract Instance:", tokenContract);
+
+        // Check if contract exists
+        const code = await signer.provider.getCode(tokenAddress);
+        // console.log("Contract code at address:", code);
+
+        // Log available methods
+        // console.log("Contract methods:", tokenContract.functions);
+
+        const balanceWei = await tokenContract.balanceOf(address);
+        // console.log("Raw balance:", balanceWei.toString());
+
+        const formattedBalance = ethers.utils.formatUnits(balanceWei, 18);
+        // console.log("Formatted balance:", formattedBalance);
+
+        setMyBalance(formattedBalance);
       } catch (error) {
-        console.error("Error fetching balance:", error);
+        console.log("Detailed error:", {
+          message: error.message,
+          code: error.code,
+          stack: error.stack,
+          data: error.data,
+        });
       }
+    } else {
+      console.log("Missing requirements:", {
+        hasAddress: !!address,
+        hasSigner: !!signer,
+      });
     }
   };
+
+  // Add useEffect to watch for balance changes
+  useEffect(() => {
+    getMyBalance();
+
+    if (signer && address) {
+      const exchangeContract = new ethers.Contract(
+        exchangeAddress,
+        CarbonCreditExchangeABI,
+        signer
+      );
+
+      // Listen for TokensPurchased event
+      const purchaseFilter = exchangeContract.filters.TokensPurchased();
+      exchangeContract.on(purchaseFilter, getMyBalance);
+
+      // Listen for TokensSold event
+      const sellFilter = exchangeContract.filters.TokensSold();
+      exchangeContract.on(sellFilter, getMyBalance);
+
+      return () => {
+        exchangeContract.off(purchaseFilter, getMyBalance);
+        exchangeContract.off(sellFilter, getMyBalance);
+      };
+    }
+  }, [address, signer]);
 
   const calculateOffset = (amount) => {
     const offset = amount * CARBON_CREDIT_TO_CO2_RATIO;
@@ -157,34 +218,65 @@ function BuyPage() {
         setError("Failed to load chart data. Please try again later.");
       }
     };
-
     getMyBalance();
     fetchChartData();
   }, []);
 
   async function getLatestEthUsdPrice() {
     try {
-      // Create contract instance with proper signer
+      console.log("Signer:", signer);
+      console.log(
+        "Price Feed Address:",
+        "0x694AA1769357215DE4FAC081bf1f309aDC325306"
+      );
+      console.log("ABI:", AggregatorV3InterfaceABI);
+
+      // Check if contract exists at address
+      const code = await signer.provider.getCode(
+        "0x694AA1769357215DE4FAC081bf1f309aDC325306"
+      );
+      console.log("Contract code at address:", code);
+
+      // Create contract instance
       const priceFeedContract = new ethers.Contract(
-        priceFeedAddress,
-        AggregatorV3InterfaceABI,
+        "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+        [
+          {
+            inputs: [],
+            name: "latestRoundData",
+            outputs: [
+              { name: "roundId", type: "uint80" },
+              { name: "answer", type: "int256" },
+              { name: "startedAt", type: "uint256" },
+              { name: "updatedAt", type: "uint256" },
+              { name: "answeredInRound", type: "uint80" },
+            ],
+            stateMutability: "view",
+            type: "function",
+          },
+        ],
         signer
       );
+      console.log("Contract instance:", priceFeedContract);
 
-      // Get latest round data
-      const [roundId, answer, startedAt, updatedAt, answeredInRound] =
-        await priceFeedContract.latestRoundData();
+      const roundData = await priceFeedContract.latestRoundData();
+      console.log("Round data:", roundData);
 
-      // Convert price feed answer to USD value
-      const price = Number(ethers.utils.formatUnits(answer, 8));
+      const price = Number(ethers.utils.formatUnits(roundData.answer, 8));
+      console.log("Formatted price:", price);
+
       setEthUsdPrice(price);
       return price;
     } catch (error) {
-      console.error("Price feed error:", error);
-      // Return a fallback price or throw error based on your requirements
-      return 2000; // Example fallback price
+      // console.log("Detailed error:", {
+      //   message: error.message,
+      //   code: error.code,
+      //   stack: error.stack,
+      // });
+      return 2000;
     }
   }
+
   const buyTokens = async (tokenAmount, tokenPrice) => {
     try {
       setButtonText("Processing...");
@@ -204,7 +296,6 @@ function BuyPage() {
         }
       );
 
-      // Store only the essential data
       await addDoc(collection(db, "purchases"), {
         address,
         amount: tokenAmount,
@@ -213,9 +304,8 @@ function BuyPage() {
         createdAt: serverTimestamp(),
       });
 
-      setMyBalance((prev) => (Number(prev) + Number(tokenAmount)).toFixed(1));
+      await getMyBalance(); // Refresh balance after purchase
       setShowSuccessAlert(true);
-
       setButtonText("Confirm Purchase");
     } catch (error) {
       setButtonText("Confirm Purchase");

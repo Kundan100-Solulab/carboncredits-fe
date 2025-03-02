@@ -51,7 +51,7 @@ import Footer from "./Footer";
 
 const tokenAddress = "0x2181dCA9782E00C217D9a0e9570919A39EF530d8";
 const exchangeAddress = "0x2f5e216a8096e6e65228Fab61a1e3D246f718c0E";
-const priceFeedAddress = "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1";
+const priceFeedAddress = "0x694AA1769357215DE4FAC081bf1f309aDC325306";
 const CarbonCreditTokenABI = require("../src/app/utils/CarbonCreditToken.json");
 const CarbonCreditExchangeABI = require("../src/app/utils/CarbonCreditExchange.json");
 const AggregatorV3InterfaceABI = require("../src/app/utils/AggregatorV3Interface.json");
@@ -93,20 +93,48 @@ function SellPage() {
   );
 
   const getMyBalance = async () => {
-    if (address && token) {
+    // console.log("Starting balance fetch...");
+    // console.log("Address:", address);
+    // console.log("Signer:", signer);
+    // console.log("Token Address:", tokenAddress);
+    // console.log("Token ABI:", CarbonCreditTokenABI);
+
+    if (address && signer) {
       try {
-        // Get balance in wei
-        const balance = await token.call("balanceOf", [address]);
+        const tokenContract = new ethers.Contract(
+          tokenAddress,
+          CarbonCreditTokenABI,
+          signer
+        );
+        // console.log("Token Contract Instance:", tokenContract);
 
-        // Convert wei to ether (18 decimals)
-        const formattedBalance = ethers.utils.formatUnits(balance, 18);
+        // Check if contract exists
+        const code = await signer.provider.getCode(tokenAddress);
+        // console.log("Contract code at address:", code);
 
-        // Update state with formatted balance
-        setMyBalance(parseFloat(formattedBalance));
+        // // Log available methods
+        // console.log("Contract methods:", tokenContract.functions);
+
+        const balanceWei = await tokenContract.balanceOf(address);
+        // console.log("Raw balance:", balanceWei.toString());
+
+        const formattedBalance = ethers.utils.formatUnits(balanceWei, 18);
+        // console.log("Formatted balance:", formattedBalance);
+
+        setMyBalance(formattedBalance);
       } catch (error) {
-        console.error("Error fetching balance:", error);
-        setMyBalance(0);
+        console.log("Detailed error:", {
+          message: error.message,
+          code: error.code,
+          stack: error.stack,
+          data: error.data,
+        });
       }
+    } else {
+      console.log("Missing requirements:", {
+        hasAddress: !!address,
+        hasSigner: !!signer,
+      });
     }
   };
 

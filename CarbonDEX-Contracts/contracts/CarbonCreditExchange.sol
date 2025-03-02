@@ -87,4 +87,8 @@ contract CarbonCreditExchange {
     function getContractBalance() public view returns (uint256) {
         return address(this).balance;
     }
+
+    function getUserBalance(address _user) public view returns (uint256) {
+        return token.getUserTokenBalance(_user);
+    }
 }

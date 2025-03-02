@@ -9,4 +9,8 @@ contract CarbonCreditToken is ERC20 {
     function mint(address to, uint256 amount) public {
         _mint(to, amount);
     }
+
+    function getUserTokenBalance(address _user) public view returns (uint256) {
+        return balanceOf(_user);
+    }
 }
