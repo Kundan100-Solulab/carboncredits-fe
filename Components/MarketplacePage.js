@@ -49,7 +49,7 @@ import Footer from "./Footer";
 
 const tokenAddress = "0x2181dCA9782E00C217D9a0e9570919A39EF530d8";
 const exchangeAddress = "0x2f5e216a8096e6e65228Fab61a1e3D246f718c0E";
-const priceFeedAddress = "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1";
+const priceFeedAddress = "0x694AA1769357215DE4FAC081bf1f309aDC325306";
 const CarbonCreditTokenABI = require("../src/app/utils/CarbonCreditToken.json");
 const CarbonCreditExchangeABI = require("../src/app/utils/CarbonCreditExchange.json");
 const AggregatorV3InterfaceABI = require("../src/app/utils/AggregatorV3Interface.json");

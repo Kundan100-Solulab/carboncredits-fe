@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -10,10 +10,39 @@ import {
   HelpCircle,
 } from "lucide-react";
 import WithdrawModal from "./WithdrawModal";
+import { useAddress, useSigner } from "@thirdweb-dev/react";
+import { ethers } from "ethers";
+const exchangeAddress = "0x2f5e216a8096e6e65228Fab61a1e3D246f718c0E";
+const CarbonCreditExchangeABI = require("../src/app/utils/CarbonCreditExchange.json");
 
 const AccountOverview = ({ portfolio, totalTrades }) => {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const accountValue = portfolio.credits * portfolio.price + portfolio.cash;
+  const [myBalance, setMyBalance] = useState(0);
+
+  const address = useAddress();
+  const signer = useSigner();
+
+  const getMyBalance = async () => {
+    if (address && signer) {
+      try {
+        const exchangeContract = new ethers.Contract(
+          exchangeAddress,
+          CarbonCreditExchangeABI,
+          signer
+        );
+
+        const balanceWei = await exchangeContract.getUserBalance(address);
+        const formattedBalance = ethers.utils.formatUnits(balanceWei, 18);
+        setMyBalance(formattedBalance);
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    getMyBalance();
+  }, [address, signer]);
 
   const handleWithdrawClick = () => {
     setShowWithdrawModal(true);
@@ -34,15 +63,10 @@ const AccountOverview = ({ portfolio, totalTrades }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h3 className="text-lg font-medium mb-2 text-gray-300">Balance</h3>
-            <p className="text-2xl font-bold text-green-500">
-              ${accountValue.toFixed(2)}
-            </p>
+            <p className="text-2xl font-bold text-green-500">{myBalance} CCT</p>
             <div className="mt-2 text-sm text-gray-400">
               <p>Cash: ${portfolio.cash.toFixed(2)}</p>
-              <p>
-                Credits: {portfolio.credits} ($
-                {(portfolio.credits * portfolio.price).toFixed(2)})
-              </p>
+              <p>Value: ${(myBalance * portfolio.price).toFixed(2)}</p>
             </div>
           </div>
 
