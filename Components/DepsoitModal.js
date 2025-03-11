@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "./Modal";
 
-export default function WithdrawModal({ isOpen, onClose, onWithdraw }) {
+export default function DepositModal({ isOpen, onClose, onDeposit }) {
   const [amount, setAmount] = useState("");
 
   const handleSubmit = () => {
     if (amount && !isNaN(amount) && amount > 0) {
-      onWithdraw(amount);
+      onDeposit(amount);
       setAmount("");
       onClose();
     }
@@ -17,7 +17,7 @@ export default function WithdrawModal({ isOpen, onClose, onWithdraw }) {
       <Modal onClose={onClose}>
         <div className="fixed inset-0 flex items-center justify-center z-100">
           <div className="bg-gray-800 w-[400px] h-[200px] rounded-lg p-6 relative">
-            <ModalHeader>Withdraw CCT Tokens</ModalHeader>
+            <ModalHeader>Deposit CCT Tokens</ModalHeader>
             <ModalBody>
               <div className="space-y-4">
                 <div>
@@ -28,8 +28,8 @@ export default function WithdrawModal({ isOpen, onClose, onWithdraw }) {
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="mt-1 pl-3 block w-full rounded-md bg-gray-700 border-gray-600 text-white"
-                    placeholder="Enter amount to withdraw"
+                    className="mt-1 pl-3  block w-full rounded-md bg-gray-700 border-gray-600 text-white"
+                    placeholder="Enter amount to deposit"
                   />
                 </div>
               </div>
@@ -43,9 +43,9 @@ export default function WithdrawModal({ isOpen, onClose, onWithdraw }) {
               </button>
               <button
                 onClick={handleSubmit}
-                className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-500"
+                className="px-4 py-2 bg-green-600 rounded-lg hover:bg-green-500"
               >
-                Confirm Withdraw
+                Confirm Deposit
               </button>
             </ModalFooter>
           </div>

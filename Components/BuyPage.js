@@ -39,6 +39,11 @@ import { ethers } from "ethers";
 import Navbar from "./Navbar2";
 import { format } from "date-fns";
 import Footer from "./Footer";
+
+import { handleDeposit, handleWithdraw } from "../handlers/handlers";
+import DepositModal from "./DepsoitModal";
+import WithdrawModal from "./WithdrawModal";
+
 const tokenAddress = "0x2181dCA9782E00C217D9a0e9570919A39EF530d8";
 const exchangeAddress = "0x2f5e216a8096e6e65228Fab61a1e3D246f718c0E";
 const priceFeedAddress = "0x694AA1769357215DE4FAC081bf1f309aDC325306";
@@ -55,6 +60,8 @@ function BuyPage() {
   const [error, setError] = useState(null);
   const [currentPrice, setCurrentPrice] = useState(0);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [portfolio, setPortfolio] = useState({
     credits: 100,
     cash: 5000,
@@ -68,6 +75,8 @@ function BuyPage() {
   const [co2Offset, setCo2Offset] = useState(0);
   const [impactRate, setImpactRate] = useState("");
   const [buttonText, setButtonText] = useState("Confirm Purchase");
+
+  const [modalAmount, setModalAmount] = useState("");
 
   // Add this conversion constant
   const CARBON_CREDIT_TO_CO2_RATIO = 1.5; // 1 carbon credit = 1.5 metric tons of CO2
@@ -417,14 +426,29 @@ function BuyPage() {
                 className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  if (!address) {
+                    alert("Please connect your wallet");
+                    return;
+                  }
+                  setShowDepositModal(true);
+                }}
               >
                 <CreditCard className="mb-2" />
                 <span className="text-sm">Deposit</span>
               </motion.button>
+
               <motion.button
                 className="flex flex-col items-center justify-center p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  if (!address) {
+                    alert("Please connect your wallet");
+                    return;
+                  }
+                  setShowWithdrawModal(true);
+                }}
               >
                 <Briefcase className="mb-2" />
                 <span className="text-sm">Withdraw</span>
@@ -654,6 +678,16 @@ function BuyPage() {
         </div>
       </div>
       <Footer />
+      <DepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        onDeposit={handleDeposit}
+      />
+      <WithdrawModal
+        isOpen={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
+        onWithdraw={handleWithdraw}
+      />
     </div>
   );
 }
